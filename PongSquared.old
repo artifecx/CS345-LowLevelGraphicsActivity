@@ -1,0 +1,410 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace BenigaLowLevelGraphics
+{
+    public partial class PongSquared : Form
+    {
+        private int p1Score = 0;
+        private int p2Score = 0;
+
+        private int platformSpeed = 10;
+        private int platformHeight = 50;
+        private int platformWidth = 10;
+
+        private int leftPlatformPositionY;
+        private int leftPlatformVelocity = 0;
+        private int leftPlatformOffset = 100;
+
+        private int rightPlatformPositionY;
+        private int rightPlatformVelocity = 0;
+        private int rightPlatformOffset = 100;
+
+        private int ballSize = 20;
+        private int ballX;
+        private int ballY;
+        private int ballSpeed = 5;
+        private int ballDirectionX;
+        private int ballDirectionY;
+
+        private bool isPaused = false;
+        private bool isManuallyPaused = false;
+        private Timer timer;
+
+        private PictureBox pausePlayButton;
+        private PictureBox resetButton;
+
+        public PongSquared()
+        {
+            InitializeComponent();
+            this.Width = 1200;
+            this.Height = 800;
+            this.Paint += PongSquared_Paint;
+            this.Resize += PongSquared_Resize;
+            this.KeyDown += PongSquared_KeyDown;
+
+            // Create the pause/play button
+            pausePlayButton = new PictureBox();
+            pausePlayButton.Image = Properties.Resources.PlayIcon; // Assume you have pause and play icons in your resources
+            pausePlayButton.Size = new Size(50, 50);
+            pausePlayButton.SizeMode = PictureBoxSizeMode.StretchImage;
+            pausePlayButton.MouseDown += PausePlayButton_MouseDown;
+            this.Controls.Add(pausePlayButton);
+
+            // Create the reset button
+            resetButton = new PictureBox();
+            resetButton.Image = Properties.Resources.ResetIcon;
+            resetButton.Size = new Size(50, 50);
+            resetButton.SizeMode = PictureBoxSizeMode.StretchImage;
+            resetButton.MouseDown += ResetButton_MouseDown;
+            this.Controls.Add(resetButton);
+
+            leftPlatformPositionY = (this.ClientRectangle.Height - platformHeight) / 2;
+            rightPlatformPositionY = (this.ClientRectangle.Height - platformHeight) / 2;
+
+            // Set up the initial position and direction of the ball
+            Random random = new Random();
+            ballX = this.ClientRectangle.Width / 2;
+            ballY = random.Next(this.ClientRectangle.Height - ballSize);
+            ballDirectionX = (random.Next(2) == 0) ? -1 : 1; // Randomly set initial direction left or right
+            ballDirectionY = (random.Next(2) == 0) ? -1 : 1; // Randomly set initial direction up or down
+
+            // Set up the timer for updating the platform position
+            timer = new Timer();
+            timer.Interval = 16; // approximately 60 frames per second
+            timer.Tick += new EventHandler(UpdateGame);
+            timer.Start();
+
+            // Call SetButtonPositionAndSize after the button is created
+            SetButtonPositionAndSize();
+        }
+
+        private void SetButtonPositionAndSize()
+        {
+            // Set the initial position of the buttons (adjust the percentages as needed)
+            if (pausePlayButton != null)
+            {
+                pausePlayButton.Location = new Point((int)(this.Width * 0.96 - pausePlayButton.Width), (int)(this.Height * 0.02));
+            }
+
+            if (resetButton != null)
+            {
+                resetButton.Location = new Point((int)(this.Width * 0.96 - resetButton.Width), (int)(this.Height * 0.10));
+            }
+        }
+
+        private void ResetButton_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                // Reset the ball and platforms
+                ResetBall();
+                ResetPlatforms();
+
+                // Set scores to 0
+                p1Score = 0;
+                p2Score = 0;
+            }
+        }
+
+        private void ResetPlatforms()
+        {
+            // Reset platform positions
+            leftPlatformPositionY = (this.ClientRectangle.Height - platformHeight) / 2;
+            rightPlatformPositionY = (this.ClientRectangle.Height - platformHeight) / 2;
+
+            // Reset platform velocities
+            leftPlatformVelocity = 0;
+            rightPlatformVelocity = 0;
+        }
+
+        private void PausePlayButton_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                isPaused = !isPaused;
+                isManuallyPaused = !isManuallyPaused;
+                UpdatePausePlayButtonImage();
+            }
+        }
+        private void UpdatePausePlayButtonImage()
+        {
+            if (isPaused)
+            {
+                pausePlayButton.Image = Properties.Resources.PauseIcon;
+            }
+            else
+            {
+                pausePlayButton.Image = Properties.Resources.PlayIcon;
+            }
+        }
+
+        private void UpdateGame(object sender, EventArgs e)
+        {
+            // Check if either platform is moving
+            bool isLeftPlatformMoving = leftPlatformVelocity != 0;
+            bool isRightPlatformMoving = rightPlatformVelocity != 0;
+
+            // If neither platform is moving, do not update the ball
+            if (!isLeftPlatformMoving && !isRightPlatformMoving)
+            {
+                //return;
+                ResetBall();
+            }
+
+            if (!isPaused)
+            {
+                // Update left platform position based on velocity
+                leftPlatformPositionY += leftPlatformVelocity;
+
+                // Bounce away from the top and bottom borders
+                if (leftPlatformPositionY < 0 || leftPlatformPositionY > this.ClientRectangle.Height - platformHeight)
+                {
+                    // Invert the velocity to create a bouncing effect
+                    leftPlatformVelocity = -leftPlatformVelocity;
+                }
+
+                // Ensure the left platform stays within the form bounds
+                leftPlatformPositionY = Math.Max(0, Math.Min(this.ClientRectangle.Height - platformHeight, leftPlatformPositionY));
+
+                // Update right platform position based on velocity
+                rightPlatformPositionY += rightPlatformVelocity;
+
+                // Bounce away from the top and bottom borders
+                if (rightPlatformPositionY < 0 || rightPlatformPositionY > this.ClientRectangle.Height - platformHeight)
+                {
+                    // Invert the velocity to create a bouncing effect
+                    rightPlatformVelocity = -rightPlatformVelocity;
+                }
+
+                // Ensure the right platform stays within the form bounds
+                rightPlatformPositionY = Math.Max(0, Math.Min(this.ClientRectangle.Height - platformHeight, rightPlatformPositionY));
+
+                // Update ball position based on direction
+                ballX += ballSpeed * ballDirectionX;
+                ballY += ballSpeed * ballDirectionY;
+
+                // Check collisions with platforms
+                if (ballDirectionX == -1 && // Ball is moving towards the left platform
+                    ballX <= 50 + platformWidth + leftPlatformOffset && // Ball is to the left of the left platform
+                    ballX + ballSize >= 50 + leftPlatformOffset && // Ball is to the right of the left platform
+                    ballY + ballSize >= leftPlatformPositionY && ballY <= leftPlatformPositionY + platformHeight) // Ball is within the vertical bounds of the left platform
+                {
+                    ballDirectionX = 1; // Bounce back
+                }
+                else if (ballDirectionX == 1 && // Ball is moving towards the right platform
+                         ballX + ballSize >= this.ClientRectangle.Width - 50 - platformWidth - rightPlatformOffset && // Ball is to the right of the right platform
+                         ballX <= this.ClientRectangle.Width - 50 - platformWidth - rightPlatformOffset && // Ball is to the left of the right platform
+                         ballY + ballSize >= rightPlatformPositionY && ballY <= rightPlatformPositionY + platformHeight) // Ball is within the vertical bounds of the right platform
+                {
+                    ballDirectionX = -1; // Bounce back
+                }
+                else if (ballX <= 0 || ballX + ballSize >= this.ClientRectangle.Width)
+                {
+                    // Check if ball went out of bounds
+                    if (ballX < 0)
+                    {
+                        // Right side scores
+                        p2Score++;
+                    }
+                    else if (ballX + ballSize > this.ClientRectangle.Width)
+                    {
+                        // Left side scores
+                        p1Score++;
+                    }
+
+                    ResetBall();
+                }
+                // Check collisions with top and bottom
+                else if (ballY <= 0 || ballY + ballSize >= this.ClientRectangle.Height)
+                {
+                    ballDirectionY = -ballDirectionY; // Bounce back
+                }
+            }
+
+            // Redraw the form to update positions
+            this.Invalidate();
+        }
+
+        private void PongSquared_Paint(object sender, PaintEventArgs e)
+        {
+            DrawCenterLine(e.Graphics);
+            DrawCounters(e.Graphics);
+        }
+
+        private void PongSquared_Resize(object sender, EventArgs e)
+        {
+
+            // Update the position of the button when the form is resized
+            SetButtonPositionAndSize();
+
+            // Enforce minimum form size
+            if (this.Width < 1000)
+            {
+                this.Width = 1000;
+            }
+
+            if (this.Height < 600)
+            {
+                this.Height = 600;
+            }
+
+            // Adjust the positions of the platforms and the ball
+            leftPlatformPositionY = (this.ClientRectangle.Height - platformHeight) / 2;
+            rightPlatformPositionY = (this.ClientRectangle.Height - platformHeight) / 2;
+
+            // Calculate the new position of the ball based on the change in form dimensions
+            float xRatio = (float)this.ClientRectangle.Width / this.ClientSize.Width;
+            float yRatio = (float)this.ClientRectangle.Height / this.ClientSize.Height;
+
+            ballX = (int)(ballX * xRatio);
+            ballY = (int)(ballY * yRatio);
+
+            // Ensure the ball stays within the adjusted borders
+            ballX = Math.Max(0, Math.Min(this.ClientRectangle.Width - ballSize, ballX));
+            ballY = Math.Max(0, Math.Min(this.ClientRectangle.Height - ballSize, ballY));
+
+            this.Invalidate();
+        }
+
+        private void DrawCenterLine(Graphics g)
+        {
+            int middleX = this.Width / 2;
+
+            Pen dashedPen = new Pen(Color.White);
+            dashedPen.Width = 4;
+            dashedPen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+            dashedPen.DashPattern = new float[] { 2f, 3f };
+
+            g.DrawLine(dashedPen, new Point(middleX, 0), new Point(middleX, this.Height));
+        }
+
+
+        private void DrawCounters(Graphics g)
+        {
+            // Calculate the position of the middle of the form
+            int middleX = this.Width / 2;
+
+            // Set up the font and brush for drawing the counters
+            float fontSize = Math.Min(this.Width / 10, this.Height / 10); // Adjust the ratio as needed
+            Font counterFont = new Font("Agency FB", fontSize);
+            Brush counterBrush = Brushes.White;
+
+            int p1CounterWidth = (int)g.MeasureString(p1Score.ToString(), counterFont).Width;
+            int p2CounterWidth = (int)g.MeasureString(p2Score.ToString(), counterFont).Width;
+
+            // Calculate the middle point for the left counter
+            int leftCounterMiddleX = middleX - (middleX / 2) - p1CounterWidth / 2;
+
+            // Draw the left counter centered to the left of the middle point
+            g.DrawString(p1Score.ToString(), counterFont, counterBrush, new PointF(leftCounterMiddleX, 20));
+
+            // Calculate the middle point for the right counter
+            int rightCounterMiddleX = middleX + (middleX / 2) - p2CounterWidth / 2;
+
+            // Draw the right counter centered to the right of the middle point
+            g.DrawString(p2Score.ToString(), counterFont, counterBrush, new PointF(rightCounterMiddleX, 20));
+        }
+        private void PongSquared_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (isPaused) return;
+
+            // Update counters when a key is pressed (for demonstration purposes)
+            if (e.KeyCode == Keys.A)
+            {
+                p1Score++;
+            }
+            else if (e.KeyCode == Keys.L)
+            {
+                p2Score++;
+            }
+
+            // Handle left platform movement
+            if (e.KeyCode == Keys.W)
+            {
+                leftPlatformVelocity = -platformSpeed;
+            }
+            else if (e.KeyCode == Keys.S)
+            {
+                leftPlatformVelocity = platformSpeed;
+            }
+
+            // Handle right platform movement
+            if (e.KeyCode == Keys.Up)
+            {
+                rightPlatformVelocity = -platformSpeed;
+            }
+            else if (e.KeyCode == Keys.Down)
+            {
+                rightPlatformVelocity = platformSpeed;
+            }
+
+            // Redraw the counters
+            this.Invalidate();
+        }
+
+        private void ResetBall()
+        {
+            ballX = this.ClientRectangle.Width / 2 - ballSize / 2;
+            ballY = this.ClientRectangle.Height / 2 - ballSize / 2;
+
+            Random random = new Random();
+            ballDirectionX = (random.Next(2) == 0) ? -1 : 1; // Randomly set initial direction left or right
+            ballDirectionY = (random.Next(2) == 0) ? -1 : 1; // Randomly set initial direction up or down
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+
+            // Draw the left platform
+            e.Graphics.FillRectangle(Brushes.White, 50 + leftPlatformOffset, leftPlatformPositionY, platformWidth, platformHeight);
+
+            // Draw the right platform
+            e.Graphics.FillRectangle(Brushes.White, this.ClientRectangle.Width - platformWidth - 50 - rightPlatformOffset, rightPlatformPositionY, platformWidth, platformHeight);
+
+            // Draw the ball in the center if not moving
+            if (leftPlatformVelocity == 0 && rightPlatformVelocity == 0)
+            {
+                int ballCenterX = (this.ClientRectangle.Width / 2) - (ballSize / 2) + 6;
+                int ballCenterY = (this.ClientRectangle.Height / 2) - (ballSize / 2);
+                e.Graphics.FillEllipse(Brushes.White, ballCenterX, ballCenterY, ballSize, ballSize);
+            }
+            else
+            {
+                // Draw the ball when it is moving
+                e.Graphics.FillEllipse(Brushes.White, ballX, ballY, ballSize, ballSize);
+            }
+        }
+
+        private void PongSquared_ResizeBegin(object sender, EventArgs e)
+        {
+            isPaused = true;
+            UpdatePausePlayButtonImage();
+        }
+
+        private void PongSquared_ResizeEnd(object sender, EventArgs e)
+        {
+            if (!isManuallyPaused)
+            {
+                // If not manually paused, resume the game
+                isPaused = false;
+                UpdatePausePlayButtonImage();
+            }
+        }
+
+        // Dispose the timer when the form is closed
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            base.OnFormClosed(e);
+            timer.Dispose();
+        }
+    }
+}
