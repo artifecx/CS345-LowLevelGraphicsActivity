@@ -217,6 +217,16 @@ namespace BenigaLowLevelGraphics
                     ballY + ballSize >= leftPlatformPositionY && ballY <= leftPlatformPositionY + platformHeight) // Ball is within the vertical bounds of the left platform
                 {
                     ballDirectionX = 1; // Bounce back
+
+                    // Check if the ball hits the top or bottom half of the platform
+                    if (ballY + ballSize / 2 < leftPlatformPositionY + platformHeight / 2)
+                    {
+                        ballDirectionY = -1; // Bounce upwards
+                    }
+                    else if (ballY + ballSize / 2 > leftPlatformPositionY + platformHeight / 2)
+                    {
+                        ballDirectionY = 1; // Bounce downwards
+                    }
                 }
                 else if (ballDirectionX == 1 && // Ball is moving towards the right platform
                          ballX + ballSize >= this.ClientRectangle.Width - 50 - platformWidth - rightPlatformOffset && // Ball is to the right of the right platform
@@ -224,6 +234,16 @@ namespace BenigaLowLevelGraphics
                          ballY + ballSize >= rightPlatformPositionY && ballY <= rightPlatformPositionY + platformHeight) // Ball is within the vertical bounds of the right platform
                 {
                     ballDirectionX = -1; // Bounce back
+
+                    // Check if the ball hits the top or bottom half of the platform
+                    if (ballY + ballSize / 2 < rightPlatformPositionY + platformHeight / 2)
+                    {
+                        ballDirectionY = -1; // Bounce upwards
+                    }
+                    else if (ballY + ballSize / 2 > rightPlatformPositionY + platformHeight / 2)
+                    {
+                        ballDirectionY = 1; // Bounce downwards
+                    }
                 }
                 else if (ballX <= 0 || ballX + ballSize >= this.ClientRectangle.Width) // Check if ball went out of bounds
                 {
@@ -280,7 +300,8 @@ namespace BenigaLowLevelGraphics
 
             Random random = new Random();
             ballDirectionX = (random.Next(2) == 0) ? -1 : 1; // Randomly set initial direction left or right
-            ballDirectionY = (random.Next(2) == 0) ? -1 : 1; // Randomly set initial direction up or down
+            //ballDirectionY = (random.Next(2) == 0) ? -1 : 1; // Randomly set initial direction up or down
+            ballDirectionY = (random.Next(3) == 0) ? 0 : (random.Next(2) == 0 ? 1 : -1); // Added option to go straight left or right
         }
 
         private void ResetPlatforms()
@@ -358,11 +379,11 @@ namespace BenigaLowLevelGraphics
             {
                 int ballCenterX = (this.ClientRectangle.Width / 2) - (ballSize / 2) + 7; // +7 to align the ball with the dashed line
                 int ballCenterY = (this.ClientRectangle.Height / 2) - (ballSize / 2);
-                e.Graphics.FillEllipse(Brushes.White, ballCenterX, ballCenterY, ballSize, ballSize);
+                e.Graphics.FillRectangle(Brushes.White, ballCenterX, ballCenterY, ballSize, ballSize);
             }
             else
             {
-                e.Graphics.FillEllipse(Brushes.White, ballX, ballY, ballSize, ballSize);
+                e.Graphics.FillRectangle(Brushes.White, ballX, ballY, ballSize, ballSize);
             }
         }
 
